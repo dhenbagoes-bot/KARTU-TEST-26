@@ -1,0 +1,1 @@
+{"compilerOptions":{"esModuleInterop":true,"module":"commonjs","moduleResolution":"bundler","outDir":"dist-test-cjs","rootDir":"../src","skipLibCheck":true,"strict":true,"target":"ES2022"},"include":["../src/utils/logika.ts","../src/utils/excel.ts","../src/utils/format.ts"]}
