@@ -6,7 +6,7 @@ import type { PenggunaData } from '../types';
 import { DAFTAR_PERAN } from '../types';
 import { bacaGambar, validasiPenggunaForm } from '../utils/format';
 import { eksporPenggunaExcel } from '../utils/excel';
-import { filterPengguna, idBerikutnya } from '../utils/logika';
+import { buatPasswordAcak, filterPengguna, idBerikutnya, usernameDariNama } from '../utils/logika';
 import type { PageProps } from './PageProps';
 
 const FORM_KOSONG = { nama: '', username: '', password: '', role: 'Siswa', kelas: '', id: '' };
@@ -26,6 +26,9 @@ export default function DataPengguna({ data, user, refresh, setPesanGlobal }: Pa
   const [fotoBaru, setFotoBaru] = useState<{ dataUrl: string; mimeType: string } | null>(null);
   const [fotoLama, setFotoLama] = useState('');
   const [hapusId, setHapusId] = useState('');
+  // Username = Nama Lengkap: selama belum diubah manual, username mengikuti Nama.
+  const [usernameManual, setUsernameManual] = useState(false);
+  const [passwordAcakTampil, setPasswordAcakTampil] = useState('');
   const inputFoto = useRef<HTMLInputElement>(null);
 
   const daftarKelas = useMemo(() => [...new Set(data.pengguna.map((u) => u.kelas).filter(Boolean))].sort(), [data.pengguna]);
@@ -39,12 +42,25 @@ export default function DataPengguna({ data, user, refresh, setPesanGlobal }: Pa
   function mulaiTambah() {
     setForm({ ...FORM_KOSONG, id: idBerikutnya(data.pengguna) });
     setEditId(''); setFotoBaru(null); setFotoLama(''); setPesan(''); setFormBuka(true);
+    setUsernameManual(false); setPasswordAcakTampil('');
   }
   function mulaiEdit(u: PenggunaData) {
     setForm({ nama: u.nama, username: u.username, password: '', role: u.role, kelas: u.kelas, id: u.id });
     setEditId(u.id); setFotoBaru(null); setFotoLama(u.fotoUrl); setPesan(''); setFormBuka(true);
+    setUsernameManual(true); setPasswordAcakTampil('');
   }
-  function batal() { setEditId(''); setForm(FORM_KOSONG); setFotoBaru(null); setFotoLama(''); setFormBuka(false); }
+  function batal() { setEditId(''); setForm(FORM_KOSONG); setFotoBaru(null); setFotoLama(''); setFormBuka(false); setUsernameManual(false); setPasswordAcakTampil(''); }
+
+  /** Ketik Nama -> Username ikut terisi sama dengan Nama (selama belum diubah manual). */
+  function ubahNama(namaBaru: string) {
+    setForm((f) => ({ ...f, nama: namaBaru, username: usernameManual ? f.username : namaBaru }));
+  }
+
+  function acakPassword() {
+    const acak = buatPasswordAcak();
+    setForm((f) => ({ ...f, password: acak }));
+    setPasswordAcakTampil(acak);
+  }
 
   async function pilihFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -61,31 +77,34 @@ export default function DataPengguna({ data, user, refresh, setPesanGlobal }: Pa
   async function simpan(e: React.FormEvent) {
     e.preventDefault();
     setPesan('');
-    const errs = validasiPenggunaForm({ ...form, isBaru: !editId });
+    // Username kosong -> diisi dari Nama Lengkap (boleh berisi spasi).
+    const usernameFinal = usernameDariNama(form.nama, form.username);
+    const formFinal = { ...form, username: usernameFinal };
+    const errs = validasiPenggunaForm({ ...formFinal, isBaru: !editId });
     if (errs.length) { setPesan(errs.join(' ')); setJenis('error'); return; }
-    const duplikat = data.pengguna.some((u) => u.username.toLowerCase() === form.username.trim().toLowerCase() && u.id !== editId);
-    if (duplikat) { setPesan(`Username ${form.username.trim()} sudah dipakai pengguna lain.`); setJenis('error'); return; }
+    const duplikat = data.pengguna.some((u) => u.username.toLowerCase() === usernameFinal.toLowerCase() && u.id !== editId);
+    if (duplikat) { setPesan(`Username ${usernameFinal} sudah dipakai pengguna lain.`); setJenis('error'); return; }
     setSibuk(true);
     try {
       if (editId) {
         // Pengguna sudah ada: foto bisa diunggah dulu, lalu simpan URL-nya.
         let fotoUrl = fotoLama;
         if (fotoBaru) {
-          const up = await uploadFoto({ userId: editId, dataBase64: fotoBaru.dataUrl, mimeType: fotoBaru.mimeType, namaFile: `${form.username.trim()}.jpg` });
+          const up = await uploadFoto({ userId: editId, dataBase64: fotoBaru.dataUrl, mimeType: fotoBaru.mimeType, namaFile: `${usernameFinal}.jpg` });
           fotoUrl = up.url;
         }
-        await updatePengguna({ id: editId, nama: form.nama.trim(), username: form.username.trim(), password: form.password || undefined, role: form.role, kelas: form.kelas.trim(), fotoUrl });
+        await updatePengguna({ id: editId, nama: form.nama.trim(), username: usernameFinal, password: form.password || undefined, role: form.role, kelas: form.kelas.trim(), fotoUrl });
         setPesanGlobal('Data pengguna diperbarui.', 'sukses');
       } else {
         // Pengguna baru: buat dulu (foto butuh userId yang sudah ada di sheet),
         // lalu unggah foto dan simpan URL-nya.
         const idTarget = form.id.trim() || idBerikutnya(data.pengguna);
-        const dibuat = await addPengguna({ nama: form.nama.trim(), username: form.username.trim(), password: form.password, role: form.role, kelas: form.kelas.trim(), id: idTarget, fotoUrl: '' });
+        const dibuat = await addPengguna({ nama: form.nama.trim(), username: usernameFinal, password: form.password, role: form.role, kelas: form.kelas.trim(), id: idTarget, fotoUrl: '' });
         if (fotoBaru) {
-          const up = await uploadFoto({ userId: dibuat.id, dataBase64: fotoBaru.dataUrl, mimeType: fotoBaru.mimeType, namaFile: `${form.username.trim()}.jpg` });
-          await updatePengguna({ id: dibuat.id, nama: form.nama.trim(), username: form.username.trim(), role: form.role, kelas: form.kelas.trim(), fotoUrl: up.url });
+          const up = await uploadFoto({ userId: dibuat.id, dataBase64: fotoBaru.dataUrl, mimeType: fotoBaru.mimeType, namaFile: `${usernameFinal}.jpg` });
+          await updatePengguna({ id: dibuat.id, nama: form.nama.trim(), username: usernameFinal, role: form.role, kelas: form.kelas.trim(), fotoUrl: up.url });
         }
-        setPesanGlobal(`Pengguna ditambahkan (ID ${dibuat.id}).`, 'sukses');
+        setPesanGlobal(`Pengguna ditambahkan (ID ${dibuat.id}).` + (passwordAcakTampil ? ` Password acak: ${passwordAcakTampil} — catat sebelum lupa.` : ''), 'sukses');
       }
       batal();
       await refresh();
@@ -180,10 +199,17 @@ export default function DataPengguna({ data, user, refresh, setPesanGlobal }: Pa
       {!isSiswa && formBuka && (
         <Card title={editId ? `Edit Pengguna — ${form.nama || form.username}` : 'Tambah Pengguna Baru'}>
           <form onSubmit={simpan} className="grid sm:grid-cols-2 gap-3">
-            <Field label="Nama Lengkap *"><Input value={form.nama} onChange={(e) => setForm((f) => ({ ...f, nama: e.target.value }))} /></Field>
-            <Field label="Username *"><Input value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} placeholder="unik, tanpa spasi" /></Field>
+            <Field label="Nama Lengkap *"><Input value={form.nama} onChange={(e) => ubahNama(e.target.value)} placeholder="mis. Budi Santoso" /></Field>
+            <Field label="Username *">
+              <Input value={form.username} onChange={(e) => { setUsernameManual(true); setForm((f) => ({ ...f, username: e.target.value })); }} placeholder="otomatis = Nama Lengkap" />
+              <button type="button" className="text-xs text-emerald-700 font-semibold mt-1" onClick={() => { setUsernameManual(false); setForm((f) => ({ ...f, username: f.nama })); }}>Samakan dengan Nama Lengkap</button>
+            </Field>
             <Field label={editId ? 'Password (kosong = tidak diubah)' : 'Password *'}>
-              <Input type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder="Minimal 6 karakter" />
+              <div className="flex gap-2">
+                <Input type="password" value={form.password} onChange={(e) => { setPasswordAcakTampil(''); setForm((f) => ({ ...f, password: e.target.value })); }} placeholder="Minimal 6 karakter" />
+                <Btn warna="putih" onClick={acakPassword}>Acak</Btn>
+              </div>
+              {passwordAcakTampil && <p className="text-xs text-emerald-700 mt-1">Password acak: <b>{passwordAcakTampil}</b> — catat sebelum Simpan.</p>}
             </Field>
             <Field label="Role *">
               <Select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}>

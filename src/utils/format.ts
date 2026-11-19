@@ -35,9 +35,11 @@ export function unduhTeks(namaFile: string, isi: string, tipe = 'application/jso
 export function validasiPenggunaForm(s: { nama: string; username: string; password: string; role: string; isBaru: boolean }): string[] {
   const errs: string[] = [];
   if (!s.nama.trim()) errs.push('Nama lengkap wajib diisi.');
-  if (!s.username.trim()) errs.push('Username wajib diisi.');
-  else if (!/^[A-Za-z0-9._-]+$/.test(s.username.trim())) errs.push('Username hanya boleh huruf, angka, titik, underscore, dash.');
-  if (s.isBaru && (!s.password || s.password.length < 6)) errs.push('Password wajib diisi, minimal 6 karakter.');
+  // Username = Nama Lengkap: boleh berisi spasi; bila dikosongkan, diisi dari Nama.
+  const username = (s.username.trim() || s.nama.trim()).replace(/\s+/g, ' ');
+  if (!username) errs.push('Username wajib diisi.');
+  else if (!/^[A-Za-z0-9._\- ']+$/.test(username)) errs.push('Username hanya boleh huruf, angka, spasi, titik, underscore, dash, apostrof.');
+  if (s.isBaru && (!s.password || s.password.length < 6)) errs.push('Password wajib diisi, minimal 6 karakter (atau klik Acak).');
   if (s.password && s.password.length < 6) errs.push('Password minimal 6 karakter.');
   if (!['Admin', 'Guru', 'Siswa', 'Pegawai', 'Operator'].includes(s.role)) errs.push('Role tidak valid.');
   return errs;

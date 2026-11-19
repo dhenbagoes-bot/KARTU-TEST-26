@@ -5,6 +5,29 @@ export function normalisasiKunci(s: string): string {
   return (s || '').trim().toLowerCase().replace(/[._\-\s]+/g, '');
 }
 
+/**
+ * Username = Nama Lengkap: rapikan spasi (trim + satu spasi antar kata).
+ * Dipakai di semua validasi & pencocokan agar "Budi  Santoso" dan
+ * "Budi Santoso" dianggap username yang sama.
+ */
+export function normalisasiUsername(s: string): string {
+  return (s || '').trim().replace(/\s+/g, ' ');
+}
+
+/** Password acak 6 karakter (huruf + angka, tanpa karakter yang membingungkan). */
+export function buatPasswordAcak(): string {
+  const aksara = 'abcdefghjkmnpqrstuvwxyz23456789';
+  let out = '';
+  for (let i = 0; i < 6; i++) out += aksara.charAt(Math.floor(Math.random() * aksara.length));
+  return out;
+}
+
+/** Username dari Nama Lengkap bila kolom Username dikosongkan. */
+export function usernameDariNama(nama: string, username: string): string {
+  const u = normalisasiUsername(username);
+  return u || normalisasiUsername(nama);
+}
+
 /** Ambil nama file tanpa ekstensi (untuk pencocokan foto massal). */
 export function kunciDariNamaFile(namaFile: string): string {
   const dasar = (namaFile || '').split(/[\\/]/).pop() || '';
@@ -71,6 +94,8 @@ export interface BarisImporPengguna {
   nama: string;
   username: string;
   password: string;
+  /** true bila password dibuat acak otomatis karena kolom Password kosong. */
+  passwordAcak?: boolean;
   role: string;
   kelas: string;
   id: string;
@@ -79,16 +104,20 @@ export interface BarisImporPengguna {
 
 export const PERAN_VALID = ['Admin', 'Guru', 'Siswa', 'Pegawai', 'Operator'];
 
-/** Validasi satu baris impor Excel (murni, tanpa efek samping). */
+/** Validasi satu baris impor Excel (murni, tanpa efek samping).
+ * Username BOLEH berisi spasi (= Nama Lengkap, mis. "Budi Santoso") dan
+ * BOLEH dikosongkan — bila kosong, diisi otomatis dari Nama Lengkap.
+ * Password kosong BUKAN masalah: bacaFileImpor sudah mengisinya acak. */
 export function validasiBarisImpor(
   b: Omit<BarisImporPengguna, 'masalah'>,
   usernameAda: Set<string>,
 ): string[] {
   const masalah: string[] = [];
   if (!b.nama.trim()) masalah.push('Nama kosong');
-  if (!b.username.trim()) masalah.push('Username kosong');
-  else if (!/^[A-Za-z0-9._-]+$/.test(b.username.trim())) masalah.push('Username hanya boleh huruf, angka, titik, underscore, dash');
-  else if (usernameAda.has(b.username.trim().toLowerCase())) masalah.push(`Username ${b.username.trim()} sudah ada`);
+  const username = usernameDariNama(b.nama, b.username);
+  if (!username) masalah.push('Username kosong');
+  else if (!/^[A-Za-z0-9._\- ']+$/.test(username)) masalah.push('Username hanya boleh huruf, angka, spasi, titik, underscore, dash, apostrof');
+  else if (usernameAda.has(username.toLowerCase())) masalah.push(`Username ${username} sudah ada`);
   if (!b.password) masalah.push('Password kosong');
   else if (b.password.length < 6) masalah.push('Password minimal 6 karakter');
   if (!PERAN_VALID.includes(b.role.trim())) masalah.push(`Role harus salah satu: ${PERAN_VALID.join(', ')}`);

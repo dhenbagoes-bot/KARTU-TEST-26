@@ -150,6 +150,16 @@ cek('role invalid ditolak', !call({ action: 'addPengguna', token, nama: 'X', use
 cek('password pendek ditolak', !call({ action: 'addPengguna', token, nama: 'X', username: 'xpass', password: '123', role: 'Siswa' }).success);
 cek('nama kosong ditolak', !call({ action: 'addPengguna', token, nama: '', username: 'xkosong', password: 'rahasia123', role: 'Siswa' }).success);
 cek('username berkarakter aneh ditolak', !call({ action: 'addPengguna', token, nama: 'X', username: 'budi santoso!', password: 'rahasia123', role: 'Siswa' }).success);
+// v1.0.1: Username = Nama Lengkap (boleh berisi spasi).
+const pSpasi = call({ action: 'addPengguna', token, nama: 'Budi Santoso', username: 'Budi Santoso', password: 'rahasia123', role: 'Siswa' });
+cek('tambah pengguna username = Nama Lengkap (ber-spasi) lolos', pSpasi.success, JSON.stringify(pSpasi));
+cek('login username nama lengkap (huruf kecil + spasi ganda) lolos', call({ action: 'login', username: '  budi   santoso ', password: 'rahasia123' }).success);
+cek('username duplikat nama lengkap (spasi ganda) ditolak', !call({ action: 'addPengguna', token, nama: 'Budi Santoso', username: 'Budi  Santoso', password: 'rahasia123', role: 'Siswa' }).success);
+cek('hapus pengguna sementara (jaga jumlah)', call({ action: 'deletePengguna', token, id: pSpasi.data.id }).success);
+const pAcak = call({ action: 'addPengguna', token, nama: 'Citra Kirana', username: '', password: '', role: 'Siswa' });
+cek('tambah pengguna username+password kosong -> username=Nama, password acak 6 karakter', pAcak.success && pAcak.data.passwordAcak && pAcak.data.passwordAcak.length === 6, JSON.stringify(pAcak));
+cek('login dengan password acak hasil tambah', call({ action: 'login', username: 'Citra Kirana', password: pAcak.data.passwordAcak }).success);
+cek('hapus pengguna sementara 2 (jaga jumlah)', call({ action: 'deletePengguna', token, id: pAcak.data.id }).success);
 const p2 = call({ action: 'addPengguna', token, nama: 'Siti Aminah', username: 'siti.aminah', password: 'rahasia123', role: 'Guru', kelas: '', id: 'GURU-01' });
 cek('tambah pengguna ID manual dipertahankan', p2.success && p2.data.id === 'GURU-01', JSON.stringify(p2));
 const edit = call({ action: 'updatePengguna', token, id: p1.data.id, nama: 'Budi Santoso Edited', username: 'budi.santoso', role: 'Siswa', kelas: '9B' });
@@ -172,9 +182,12 @@ const impor = call({ action: 'importPengguna', token, rows: [
   { nama: 'Duplikat Budi', username: 'budi.santoso', password: 'rahasia123', role: 'Siswa' },
   { nama: '', username: 'kosong', password: 'rahasia123', role: 'Siswa' },
   { nama: 'Rina', username: 'rina', password: 'abc', role: 'Siswa' },
-  { nama: 'Dewi', username: 'dewi', password: 'rahasia123', role: 'Guru', id: 'KID-0009' },
+  // v1.0.1: username+password kosong -> username = Nama Lengkap, password acak.
+  { nama: 'Dewi Lestari', username: '', password: '', role: 'Guru', id: 'KID-0009' },
 ] });
 cek('impor: 2 ditambah, 3 dilewati, tidak menimpa', impor.success && impor.data.ditambah === 2 && impor.data.dilewati.length === 3, JSON.stringify(impor));
+cek('impor: username kosong terisi Nama Lengkap + password acak dilaporkan', impor.data.passwordAcak.length === 1 && impor.data.passwordAcak[0].username === 'Dewi Lestari' && impor.data.passwordAcak[0].password.length === 6, JSON.stringify(impor.data.passwordAcak));
+cek('impor: login username nama lengkap + password acak', call({ action: 'login', username: 'dewi lestari', password: impor.data.passwordAcak[0].password }).success);
 cek('impor kosong ditolak', !call({ action: 'importPengguna', token, rows: [] }).success);
 cek('jumlah pengguna setelah impor = 6', call({ action: 'getAllData', token }).data.pengguna.length === 6);
 

@@ -1,4 +1,6 @@
-# Manajemen Data & Cetak Kartu Identitas — wwn-kartu-identitas-80 v1.0.0
+# Manajemen Data & Cetak Kartu Identitas — wwn-kartu-identitas-80 v1.0.1
+
+> **v1.0.1 (19 Nov 2026):** Username = Nama Lengkap. Username kini **boleh berisi spasi** (mis. `Budi Santoso`) — error lama *"Username hanya boleh huruf, angka, titik, underscore, dash"* sudah dihapus di form, impor Excel, dan backend. Bila kolom Username dikosongkan, otomatis diisi dari Nama Lengkap (di form, username ikut terisi saat mengetik Nama; ada tombol *Samakan dengan Nama Lengkap*). Password boleh dikosongkan saat impor/tambah — dibuat **acak otomatis** (6 karakter) dan ditampilkan sekali di pratinjau/hasil impor agar bisa dicatat/diunduh sebagai CSV. Login tidak lagi peka huruf besar/kecil & spasi ganda, jadi siswa cukup mengetik nama lengkapnya. Catatan: dua siswa dengan nama lengkap yang persis sama tetap tidak bisa punya username yang sama — beri pembeda (mis. tambah kelas/inisial) pada salah satunya.
 
 Aplikasi web **Manajemen Data Pengguna dan Cetak Kartu Identitas**: kelola data pengguna (Admin/Guru/Siswa/Pegawai/Operator), upload foto massal yang dicocokkan otomatis dari nama file, impor Excel ratusan data sekaligus, beberapa template kartu (mis. Kartu Siswa, Kartu Guru, Kartu Pegawai) dengan template default per role, dan cetak kartu 85 × 55 mm (individual/massal, per kelas, per role, ceklis) ke PDF lewat dialog cetak browser.
 
@@ -11,9 +13,9 @@ Aplikasi web **Manajemen Data Pengguna dan Cetak Kartu Identitas**: kelola data 
 |---|---|
 | Login | Username + password, token sesi 7 hari. Admin akses penuh; Guru/Pegawai/Operator kelola data + cetak; Siswa hanya lihat/cetak kartunya sendiri. Password disimpan SHA-256 + garam — tidak pernah plaintext, tidak pernah dikirim ke frontend. |
 | Dashboard | Total Pengguna, Total Siswa, Total Guru, Total Kelas (distinct), Total Foto Sudah Diunggah, Belum Punya Foto — semua dihitung dari data live — plus aktivitas terbaru & tombol cepat. |
-| Data Pengguna | Tambah/edit/hapus (konfirmasi hapus), cari nama/username/kelas/ID, filter role & kelas, foto individual (pratinjau sebelum simpan; ganti foto minta konfirmasi), username unik (frontend + backend, case-insensitive), ID otomatis KID-0001 dst (atau isi manual). Ekspor Excel. |
-| Upload Foto Massal | Pilih banyak file (JPG/JPEG/PNG saja — tipe lain ditolak dengan alasan), cocok otomatis dari nama file tanpa ekstensi ke Username ATAU ID (case-insensitive, `budi.jpg` / `KID-0001.png`), pratinjau + pasangan SEBELUM diproses, status per file berhasil/gagal + alasan, file tak cocok didaftar terpisah. Foto lama TIDAK ditimpa tanpa konfirmasi (mode timpa default MATI). Tanpa foto → inisial nama, bukan foto orang lain. |
-| Impor Excel | Unduh template .xlsx (Nama\|Username\|Password\|Role\|Kelas\|ID) → unggah → pratinjau + validasi per baris → simpan baris valid. Username duplikat dilewati & dilaporkan; data lama tidak dihapus/ditimpa. |
+| Data Pengguna | Tambah/edit/hapus (konfirmasi hapus), cari nama/username/kelas/ID, filter role & kelas, foto individual (pratinjau sebelum simpan; ganti foto minta konfirmasi), username unik (frontend + backend, case-insensitive). **Username = Nama Lengkap** (boleh berisi spasi; kosong = otomatis diisi dari Nama; tombol *Samakan dengan Nama Lengkap* + tombol *Acak* untuk password). ID otomatis KID-0001 dst (atau isi manual). Ekspor Excel. |
+| Upload Foto Massal | Pilih banyak file (JPG/JPEG/PNG saja — tipe lain ditolak dengan alasan), cocok otomatis dari nama file tanpa ekstensi ke Username ATAU ID (case-insensitive, `Budi Santoso.jpg` / `KID-0001.png`), pratinjau + pasangan SEBELUM diproses, status per file berhasil/gagal + alasan, file tak cocok didaftar terpisah. Foto lama TIDAK ditimpa tanpa konfirmasi (mode timpa default MATI). Tanpa foto → inisial nama, bukan foto orang lain. |
+| Impor Excel | Unduh template .xlsx (Nama\|Username\|Password\|Role\|Kelas\|ID) → unggah → pratinjau + validasi per baris → simpan baris valid. **Username boleh dikosongkan** (diisi dari Nama Lengkap) dan **Password boleh dikosongkan** (dibuat acak otomatis, ditampilkan di pratinjau + hasil impor, bisa diunduh sebagai CSV). Username duplikat dilewati & dilaporkan; data lama tidak dihapus/ditimpa. |
 | Desain Kartu + Template | Ukuran standar 85 × 55 mm, orientasi portrait/landscape, foto, Nama, Username/ID, Role, Kelas; logo instansi bisa diunggah & posisi diatur; warna/background/font/tata letak bisa disesuaikan; pratinjau langsung. Simpan BEBERAPA template bernama; template default per role otomatis dipakai saat cetak (bisa diganti manual). Buat/edit/hapus/duplikat template. |
 | Cetak & Download | Cetak satu kartu, massal, per kelas, per role, ceklis pengguna tertentu; pengaturan kartu per lembar A4 (kolom × baris + jarak + garis potong); ukuran kartu akurat di cetak (@media print, mm persis); unduh PDF lewat dialog cetak browser (pilih *Save as PDF*, skala 100%, aktifkan *Background graphics*); tombol Tandai Sudah Dicetak. |
 | Konfigurasi | Nama/alamat/kontak/kepala instansi, tahun, unggah logo; URL backend + Uji Koneksi + Inisialisasi Database. Halaman ini tetap bisa dibuka walau data gagal dimuat. |
@@ -46,7 +48,7 @@ Dibuat **hanya saat sheet Pengguna masih kosong** oleh Inisialisasi Database:
 1. Buat repo baru di GitHub (mis. `wwn-kartu-identitas-80`).
 2. **Add file → Upload files**, lalu seret **seluruh isi folder proyek**: `src/`, `public/`, `backend/`, `test/`, `package.json`, `package-lock.json`, `index.html`, `tsconfig.json`, `vite.config.ts`, `vercel.json`.
    ⚠️ Jangan hanya mengunggah file lepas — `src/main.tsx` yang tertinggal membuat deploy Vercel gagal.
-3. Commit dengan pesan `v1.0.0 — Manajemen Data & Cetak Kartu Identitas`.
+3. Commit dengan pesan `v1.0.1 — Username = Nama Lengkap + password acak`.
 4. Buka repo di browser dan **periksa pohon folder lengkap** sebelum deploy.
 
 ## 3. Deploy ke Vercel
@@ -72,13 +74,13 @@ Dibuat **hanya saat sheet Pengguna masih kosong** oleh Inisialisasi Database:
 - Sheet: `Pengguna` (ID, Nama, Username, PasswordHash, PasswordSalt, Role, Kelas, FotoUrl, Status, Dicetak, DibuatPada, DiubahPada), `Pengaturan` (Kunci, Nilai), `TemplateKartu` (ID, Nama, RoleTarget, DesainJson, IsDefault, DibuatPada, DiubahPada), `LogAktivitas`.
 - `initDatabase` hanya membuat header/sheet kosong + seed bila kosong — **tidak pernah menghapus data**.
 
-## QA (dijalankan sebelum rilis v1.0.0)
+## QA (dijalankan sebelum rilis v1.0.1)
 
 - `npx tsc --noEmit` — 0 error.
 - `npm run build` — sukses (dist/index.html + bundle JS/CSS).
 - `node --check` pada salinan `backend/Kode.gs` sebagai `.js` — lolos (Node 24 menolak ekstensi `.gs` untuk `--check`; isi file yang dicek identik).
-- `node test/smoke-backend.mjs` — **74 lolos, 0 gagal** (semua aksi backend diuji dengan stub GAS).
-- `node test/frontend-logic.test.cjs` — **47 lolos, 0 gagal** (pencocokan foto, validasi impor, statistik dashboard, template per role, filter, ID otomatis, halaman A4).
+- `node test/smoke-backend.mjs` — **83 lolos, 0 gagal** (semua aksi backend diuji dengan stub GAS; termasuk username nama lengkap ber-spasi, login tak peka huruf/spasi ganda, username+password kosong → auto-isi + password acak).
+- `node test/frontend-logic.test.cjs` — **58 lolos, 0 gagal** (pencocokan foto, validasi impor, statistik dashboard, template per role, filter, ID otomatis, halaman A4, username = Nama Lengkap, password acak).
 
 ## Batasan yang jujur
 

@@ -37,7 +37,7 @@ export default function Login({ onLogin, goKonfigurasi }: { onLogin: (u: UserSes
         <Pesan teks={pesan} jenis="error" />
         <form onSubmit={kirim} className="space-y-3">
           <label className="block text-sm"><span className="block font-semibold text-slate-700 mb-1">Username</span>
-            <Input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" placeholder="Username" />
+            <Input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" placeholder="Nama Lengkap (mis. Budi Santoso)" />
           </label>
           <label className="block text-sm"><span className="block font-semibold text-slate-700 mb-1">Kata Sandi</span>
             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" placeholder="Kata sandi" />

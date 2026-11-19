@@ -13,7 +13,7 @@ const { fmtTanggal, fmtWaktu, validasiPenggunaForm } = require('./dist-test-cjs/
 const {
   cocokkanFotoMassal, fotoValid, kunciDariNamaFile, validasiBarisImpor,
   hitungStatistik, pilihTemplateUntukRole, filterPengguna, idBerikutnya,
-  bagiKeHalaman,
+  bagiKeHalaman, normalisasiUsername, usernameDariNama, buatPasswordAcak,
 } = require('./dist-test-cjs/utils/logika.cjs');
 
 let lolos = 0, gagal = 0;
@@ -60,17 +60,29 @@ async function main() {
   cek('role invalid ditolak', validasiBarisImpor({ nama: 'X', username: 'baru', password: 'rahasia123', role: 'Kepala', kelas: '', id: '' }, ada).length > 0);
   cek('nama kosong ditolak', validasiBarisImpor({ nama: '', username: 'baru', password: 'rahasia123', role: 'Siswa', kelas: '', id: '' }, ada).length > 0);
 
+  console.log('== username = Nama Lengkap (v1.0.1) ==');
+  cek('normalisasiUsername: spasi ganda diringkas', normalisasiUsername('  Budi   Santoso  ') === 'Budi Santoso');
+  cek('usernameDariNama: username kosong -> Nama Lengkap', usernameDariNama('Budi Santoso', '') === 'Budi Santoso');
+  cek('usernameDariNama: username terisi dipertahankan', usernameDariNama('Budi Santoso', 'budi') === 'budi');
+  cek('buatPasswordAcak: 6 karakter huruf/angka', (() => { const p = buatPasswordAcak(); return p.length === 6 && /^[a-z2-9]+$/.test(p); })());
+  cek('username ber-spasi (= Nama Lengkap) lolos', validasiBarisImpor({ nama: 'Budi Santoso', username: 'Budi Santoso', password: 'rahasia123', role: 'Siswa', kelas: '9A', id: '' }, ada).length === 0);
+  cek('username kosong diisi otomatis dari Nama', validasiBarisImpor({ nama: 'Andi Wijaya', username: '', password: 'rahasia123', role: 'Siswa', kelas: '9A', id: '' }, ada).length === 0);
+  cek('username berisi "!" tetap ditolak', validasiBarisImpor({ nama: 'X', username: 'budi santoso!', password: 'rahasia123', role: 'Siswa', kelas: '', id: '' }, ada).length > 0);
+  cek('username duplikat nama lengkap ditolak', validasiBarisImpor({ nama: 'Budi Santoso', username: 'Budi Santoso', password: 'rahasia123', role: 'Siswa', kelas: '', id: '' }, new Set(['budi santoso'])).length > 0);
+
   const rows = await bacaFileImpor(fileDariAoa([
     HEADER_PENGGUNA,
     ['Andi Wijaya', 'andi', 'rahasia123', 'Siswa', '9A', ''],
     ['Budi Lain', 'budi.santoso', 'rahasia123', 'Siswa', '9A', ''],
     ['Rina', 'rina', 'abc', 'Guru', '', ''],
+    ['Dewi Lestari', '', '', 'Siswa', '9A', ''],
     ['', '', '', '', '', ''],
   ]), new Set(['budi.santoso']));
-  cek('baca impor: baris kosong dilewati (3 baris)', rows.length === 3, 'jumlah=' + rows.length);
+  cek('baca impor: baris kosong dilewati (4 baris)', rows.length === 4, 'jumlah=' + rows.length);
   cek('baris valid tanpa masalah', rows[0].masalah.length === 0 && rows[0].nama === 'Andi Wijaya');
   cek('duplikat di file impor terdeteksi', rows[1].masalah.some((m) => m.includes('sudah ada')));
   cek('password pendek di file impor terdeteksi', rows[2].masalah.some((m) => m.includes('Password')));
+  cek('username+password kosong -> username=Nama, password acak 6 karakter', rows[3].username === 'Dewi Lestari' && rows[3].passwordAcak === true && rows[3].password.length === 6 && rows[3].masalah.length === 0);
 
   console.log('== statistik dashboard ==');
   const stat = hitungStatistik([
@@ -117,7 +129,9 @@ async function main() {
   cek('fmtTanggal', fmtTanggal('2013-05-10') === '10/05/2013');
   cek('fmtWaktu', fmtWaktu('2026-11-19 13:00:00') === '19/11/2026 13:00');
   cek('validasi form: data benar lolos', validasiPenggunaForm({ nama: 'Budi', username: 'budi', password: 'rahasia123', role: 'Siswa', isBaru: true }).length === 0);
-  cek('validasi form: username ber-spasi ditolak', validasiPenggunaForm({ nama: 'Budi', username: 'budi santoso', password: 'rahasia123', role: 'Siswa', isBaru: true }).length > 0);
+  cek('validasi form: username = Nama Lengkap ber-spasi lolos', validasiPenggunaForm({ nama: 'Budi Santoso', username: 'Budi Santoso', password: 'rahasia123', role: 'Siswa', isBaru: true }).length === 0);
+  cek('validasi form: username kosong diisi dari Nama', validasiPenggunaForm({ nama: 'Budi Santoso', username: '', password: 'rahasia123', role: 'Siswa', isBaru: true }).length === 0);
+  cek('validasi form: username berisi "!" ditolak', validasiPenggunaForm({ nama: 'Budi', username: 'budi santoso!', password: 'rahasia123', role: 'Siswa', isBaru: true }).length > 0);
   cek('ukuran kartu: rasio 85/55 = 1,545', Math.abs(85 / 55 - 1.545) < 0.001);
 
   console.log('\nHASIL: ' + lolos + ' lolos, ' + gagal + ' gagal');

@@ -26,8 +26,8 @@ export default function Panduan() {
           <section>
             <h3 className="font-bold text-slate-800 mb-1">3. Mengisi data massal</h3>
             <ul className="list-disc ml-5 space-y-1">
-              <li><b>Impor Excel</b>: unduh template, isi Nama | Username | Password | Role | Kelas | ID, unggah, periksa pratinjau, simpan baris valid. Username duplikat dilewati.</li>
-              <li><b>Upload Foto Massal</b>: nama file harus sama dengan username atau ID (mis. <code>budi.jpg</code>, <code>KID-0001.png</code>). Periksa pratinjau &amp; pasangan sebelum memproses. Foto lama tidak ditimpa kecuali mode timpa diaktifkan.</li>
+              <li><b>Impor Excel</b>: unduh template, isi Nama | Username | Password | Role | Kelas | ID, unggah, periksa pratinjau, simpan baris valid. Username = Nama Lengkap (boleh berisi spasi); bila Username dikosongkan, otomatis diisi dari Nama. Password boleh dikosongkan — dibuat acak dan ditampilkan sekali di pratinjau/hasil impor. Username duplikat dilewati.</li>
+              <li><b>Upload Foto Massal</b>: nama file harus sama dengan username atau ID (mis. <code>Budi Santoso.jpg</code>, <code>KID-0001.png</code>). Periksa pratinjau &amp; pasangan sebelum memproses. Foto lama tidak ditimpa kecuali mode timpa diaktifkan.</li>
             </ul>
           </section>
           <section>

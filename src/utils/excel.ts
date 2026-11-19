@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import type { PenggunaData } from '../types';
-import { validasiBarisImpor, type BarisImporPengguna } from './logika';
+import { buatPasswordAcak, normalisasiUsername, validasiBarisImpor, usernameDariNama, type BarisImporPengguna } from './logika';
 
 /** Header template Excel — urutan ini yang dibaca saat impor. */
 export const HEADER_PENGGUNA = ['Nama', 'Username', 'Password', 'Role', 'Kelas', 'ID'];
@@ -8,8 +8,11 @@ export const HEADER_PENGGUNA = ['Nama', 'Username', 'Password', 'Role', 'Kelas',
 export function unduhTemplatePengguna(): void {
   const ws = XLSX.utils.aoa_to_sheet([
     HEADER_PENGGUNA,
-    ['Budi Santoso', 'budi.santoso', 'rahasia123', 'Siswa', '9A', 'KID-0001'],
-    ['Siti Aminah', 'siti.aminah', 'rahasia123', 'Guru', '', ''],
+    // Username = Nama Lengkap (boleh berisi spasi). Baris ke-2 menunjukkan
+    // Username & Password boleh dikosongkan: username diisi dari Nama,
+    // password dibuat acak otomatis.
+    ['Budi Santoso', 'Budi Santoso', 'rahasia123', 'Siswa', '9A', 'KID-0001'],
+    ['Siti Aminah', '', '', 'Guru', '', ''],
   ]);
   ws['!cols'] = HEADER_PENGGUNA.map(() => ({ wch: 22 }));
   const wb = XLSX.utils.book_new();
@@ -37,12 +40,18 @@ export async function bacaFileImpor(file: File, usernameAda: Set<string>): Promi
   for (let i = 1; i < aoa.length; i++) {
     const r = aoa[i];
     if (!r || r.every((c) => sel(c) === '')) continue;
+    const nama = sel(r[0]);
+    // Username kosong -> diisi otomatis dari Nama Lengkap (boleh berisi spasi).
+    const username = usernameDariNama(nama, sel(r[1]));
+    // Password kosong -> dibuat acak otomatis (ditandai, ditampilkan di pratinjau).
+    const passwordMentah = sel(r[2]);
+    const passwordAcak = !passwordMentah;
     const b: BarisImporPengguna = {
-      nama: sel(r[0]), username: sel(r[1]), password: sel(r[2]),
+      nama, username, password: passwordMentah || buatPasswordAcak(), passwordAcak,
       role: sel(r[3]) || 'Siswa', kelas: sel(r[4]), id: sel(r[5]), masalah: [],
     };
     b.masalah = validasiBarisImpor(b, terlihat);
-    if (b.username) terlihat.add(b.username.toLowerCase());
+    if (b.username) terlihat.add(normalisasiUsername(b.username).toLowerCase());
     out.push(b);
   }
   return out;

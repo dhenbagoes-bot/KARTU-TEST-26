@@ -1,5 +1,5 @@
 /**
- * BACKEND — Manajemen Data & Cetak Kartu Identitas (wwn-kartu-identitas-80) v1.0.0
+ * BACKEND — Manajemen Data & Cetak Kartu Identitas (wwn-kartu-identitas-80) v1.0.1
  * Google Apps Script + Google Sheets + Google Drive
  *
  * PENTING (baca dulu):
@@ -41,7 +41,7 @@
  *    file; backend hanya menerima pasangan userId + file yang sudah cocok.
  */
 
-var APP_VERSION = '1.0.0';
+var APP_VERSION = '1.0.1';
 
 var SHEET_PENGGUNA = 'Pengguna';
 var SHEET_PENGATURAN = 'Pengaturan';
@@ -233,16 +233,31 @@ function idBerikutnya(ss) {
   while (n.length < 4) n = '0' + n;
   return 'KID-' + n;
 }
+/** Username = Nama Lengkap: rapikan spasi (trim + satu spasi antar kata). */
+function normalisasiUsername(s) {
+  return str(s).trim().replace(/\s+/g, ' ');
+}
+
+/** Password acak 6 karakter (huruf + angka, tanpa karakter membingungkan). */
+function buatPasswordAcak() {
+  var aksara = 'abcdefghjkmnpqrstuvwxyz23456789';
+  var out = '';
+  for (var i = 0; i < 6; i++) out += aksara.charAt(Math.floor(Math.random() * aksara.length));
+  return out;
+}
+
 function validasiPengguna(p, daftar, idLama) {
   var errs = [];
   if (!str(p.nama).trim()) errs.push('Nama lengkap wajib diisi.');
-  if (!str(p.username).trim()) errs.push('Username wajib diisi.');
-  else if (!/^[A-Za-z0-9._-]+$/.test(str(p.username).trim())) errs.push('Username hanya boleh huruf, angka, titik, underscore, dash.');
+  // Username boleh berisi spasi (= Nama Lengkap); bila dikosongkan, diisi dari Nama.
+  var username = normalisasiUsername(str(p.username).trim() || str(p.nama).trim());
+  if (!username) errs.push('Username wajib diisi.');
+  else if (!/^[A-Za-z0-9._\- ']+$/.test(username)) errs.push('Username hanya boleh huruf, angka, spasi, titik, underscore, dash, apostrof.');
   if (PERAN_VALID.indexOf(str(p.role)) < 0) errs.push('Role harus salah satu: ' + PERAN_VALID.join(', ') + '.');
   for (var i = 0; i < daftar.length; i++) {
     if (idLama && daftar[i].id === idLama) continue;
-    if (str(p.username).trim() && daftar[i].username.toLowerCase() === str(p.username).trim().toLowerCase()) {
-      errs.push('Username ' + p.username + ' sudah dipakai oleh ' + daftar[i].nama + '.');
+    if (username && normalisasiUsername(daftar[i].username).toLowerCase() === username.toLowerCase()) {
+      errs.push('Username ' + username + ' sudah dipakai oleh ' + daftar[i].nama + '.');
     }
     if (str(p.id).trim() && daftar[i].id === str(p.id).trim()) {
       errs.push('ID ' + p.id + ' sudah dipakai oleh ' + daftar[i].nama + '.');
@@ -314,8 +329,10 @@ function actionLogin(ss, p) {
   var sheet = ss.getSheetByName(SHEET_PENGGUNA);
   if (!sheet) return { success: false, message: 'Database belum diinisialisasi. Jalankan Inisialisasi Database dulu.' };
   var rows = bacaBaris(sheet);
+  // Username = Nama Lengkap: login tidak peka huruf besar/kecil & spasi ganda.
+  var cari = normalisasiUsername(str(p.username)).toLowerCase();
   for (var i = 0; i < rows.length; i++) {
-    if (str(rows[i][2]) === str(p.username).trim()) {
+    if (normalisasiUsername(str(rows[i][2])).toLowerCase() === cari) {
       if (str(rows[i][8]) !== 'aktif') return { success: false, message: 'Akun tidak aktif. Hubungi admin.' };
       if (hashPassword(p.password || '', str(rows[i][4])) !== str(rows[i][3])) {
         return { success: false, message: 'Username atau kata sandi salah.' };
@@ -364,19 +381,26 @@ function actionSavePengaturan(ss, user, p) {
 
 function actionAddPengguna(ss, user, p) {
   var daftar = semuaPengguna(ss);
-  if (!str(p.password) || str(p.password).length < 6) {
+  // Username kosong -> diisi dari Nama Lengkap; password kosong -> dibuat acak.
+  var username = normalisasiUsername(str(p.username).trim() || str(p.nama).trim());
+  var password = str(p.password);
+  var passwordAcak = null;
+  if (!password) { password = buatPasswordAcak(); passwordAcak = password; }
+  if (password.length < 6) {
     return { success: false, message: 'Password wajib diisi, minimal 6 karakter.' };
   }
   var id = str(p.id).trim() || idBerikutnya(ss);
-  var errs = validasiPengguna({ nama: p.nama, username: p.username, role: p.role, id: id }, daftar, '');
+  var errs = validasiPengguna({ nama: p.nama, username: username, role: p.role, id: id }, daftar, '');
   if (errs.length) return { success: false, message: errs.join(' ') };
   var sheet = pastikanSheet(ss, SHEET_PENGGUNA);
   var salt = Utilities.getUuid();
-  sheet.appendRow([id, str(p.nama).trim(), str(p.username).trim(),
-    hashPassword(p.password, salt), salt, str(p.role), str(p.kelas || ''),
+  sheet.appendRow([id, str(p.nama).trim(), username,
+    hashPassword(password, salt), salt, str(p.role), str(p.kelas || ''),
     str(p.fotoUrl || ''), 'aktif', 0, sekarang(), sekarang()]);
-  catatLog(ss, user.username, 'tambah-pengguna', 'Tambah pengguna ' + p.username + ' (' + p.role + ', ID ' + id + ')');
-  return { success: true, message: 'Pengguna ditambahkan (ID ' + id + ').', data: { id: id } };
+  catatLog(ss, user.username, 'tambah-pengguna', 'Tambah pengguna ' + username + ' (' + p.role + ', ID ' + id + ')');
+  var hasil = { success: true, message: 'Pengguna ditambahkan (ID ' + id + ').', data: { id: id } };
+  if (passwordAcak) hasil.data.passwordAcak = passwordAcak;
+  return hasil;
 }
 
 function actionUpdatePengguna(ss, user, p) {
@@ -385,7 +409,8 @@ function actionUpdatePengguna(ss, user, p) {
   var rn = cariBaris(sheet, 0, str(p.id));
   if (rn < 0) return { success: false, message: 'Pengguna tidak ditemukan.' };
   var daftar = semuaPengguna(ss);
-  var errs = validasiPengguna({ nama: p.nama, username: p.username, role: p.role, id: p.id }, daftar, str(p.id));
+  var username = normalisasiUsername(str(p.username).trim() || str(p.nama).trim());
+  var errs = validasiPengguna({ nama: p.nama, username: username, role: p.role, id: p.id }, daftar, str(p.id));
   if (errs.length) return { success: false, message: errs.join(' ') };
   var lama = sheet.getRange(rn, 1, 1, 12).getValues()[0];
   var hash = str(lama[3]), salt = str(lama[4]);
@@ -396,10 +421,10 @@ function actionUpdatePengguna(ss, user, p) {
     hapusTokenUntukUsername(ss, str(lama[2]));
   }
   sheet.getRange(rn, 1, 1, 12).setValues([[str(lama[0]), str(p.nama).trim(),
-    str(p.username).trim(), hash, salt, str(p.role), str(p.kelas || ''),
+    username, hash, salt, str(p.role), str(p.kelas || ''),
     str(p.fotoUrl !== undefined && p.fotoUrl !== null ? p.fotoUrl : lama[7]),
     str(lama[8]) || 'aktif', lama[9], lama[10], sekarang()]]);
-  catatLog(ss, user.username, 'edit-pengguna', 'Edit pengguna ' + p.username + ' (ID ' + p.id + ')');
+  catatLog(ss, user.username, 'edit-pengguna', 'Edit pengguna ' + username + ' (ID ' + p.id + ')');
   return { success: true, message: 'Pengguna diperbarui.', data: { id: str(lama[0]) } };
 }
 
@@ -451,27 +476,34 @@ function actionImportPengguna(ss, user, p) {
   var daftar = semuaPengguna(ss);
   var ditambah = 0;
   var dilewati = [];
+  var passwordAcak = [];
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i];
     var errs = [];
     if (!str(r.nama).trim()) errs.push('Nama kosong');
-    if (!str(r.username).trim()) errs.push('Username kosong');
-    if (!str(r.password) || str(r.password).length < 6) errs.push('Password minimal 6 karakter');
+    // Username kosong -> diisi dari Nama Lengkap; password kosong -> dibuat acak.
+    var usernameBaris = normalisasiUsername(str(r.username).trim() || str(r.nama).trim());
+    if (!usernameBaris) errs.push('Username kosong');
+    var passwordBaris = str(r.password);
+    var acakBaris = null;
+    if (!passwordBaris) { passwordBaris = buatPasswordAcak(); acakBaris = passwordBaris; }
+    if (passwordBaris.length < 6) errs.push('Password minimal 6 karakter');
     if (PERAN_VALID.indexOf(str(r.role)) < 0) errs.push('Role tidak valid');
     if (errs.length) { dilewati.push({ baris: i + 1, nama: str(r.nama), alasan: errs.join('; ') }); continue; }
     var id = str(r.id).trim() || idBerikutnya(ss);
-    var errs2 = validasiPengguna({ nama: r.nama, username: r.username, role: r.role, id: id }, daftar, '');
+    var errs2 = validasiPengguna({ nama: r.nama, username: usernameBaris, role: r.role, id: id }, daftar, '');
     if (errs2.length) { dilewati.push({ baris: i + 1, nama: str(r.nama), alasan: errs2.join(' ') }); continue; }
     var salt = Utilities.getUuid();
-    sheet.appendRow([id, str(r.nama).trim(), str(r.username).trim(),
-      hashPassword(r.password, salt), salt, str(r.role), str(r.kelas || ''),
+    sheet.appendRow([id, str(r.nama).trim(), usernameBaris,
+      hashPassword(passwordBaris, salt), salt, str(r.role), str(r.kelas || ''),
       '', 'aktif', 0, sekarang(), sekarang()]);
-    daftar.push({ id: id, nama: str(r.nama).trim(), username: str(r.username).trim() });
+    daftar.push({ id: id, nama: str(r.nama).trim(), username: usernameBaris });
+    if (acakBaris) passwordAcak.push({ nama: str(r.nama).trim(), username: usernameBaris, password: acakBaris });
     ditambah++;
   }
   catatLog(ss, user.username, 'impor-pengguna', 'Impor massal: ' + ditambah + ' ditambah, ' + dilewati.length + ' dilewati');
   return { success: true, message: 'Impor selesai: ' + ditambah + ' ditambah, ' + dilewati.length + ' dilewati.',
-    data: { ditambah: ditambah, dilewati: dilewati } };
+    data: { ditambah: ditambah, dilewati: dilewati, passwordAcak: passwordAcak } };
 }
 
 function actionUploadFoto(ss, user, p) {
